@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#2b3a67" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Hero Pets" />
+    <title>Hero Pets</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app-root">
+      <!-- Startbildschirm -->
+      <section id="screen-start" class="screen" hidden>
+        <div class="panel panel--center">
+          <h1 class="logo">Hero&nbsp;Pets</h1>
+          <p class="tagline">Werde ein Superheld – oder ein Superhelden-Tier!</p>
+          <div class="button-stack">
+            <button id="btn-new-game" class="btn btn-primary btn-lg">Neues Spiel</button>
+            <button id="btn-continue" class="btn btn-secondary btn-lg" hidden>Weiterspielen</button>
+            <button id="btn-reset" class="btn btn-ghost" hidden>Spielstand löschen</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Rollenauswahl -->
+      <section id="screen-role" class="screen" hidden>
+        <div class="panel">
+          <h2>Möchtest du spielen als …</h2>
+          <div class="choice-row">
+            <button class="choice-card" data-role="hero">
+              <span class="choice-icon" data-icon="hero" aria-hidden="true"></span>
+              <span class="choice-label">Held</span>
+            </button>
+            <button class="choice-card" data-role="pet">
+              <span class="choice-icon" data-icon="paw" aria-hidden="true"></span>
+              <span class="choice-label">Tier</span>
+            </button>
+          </div>
+          <button class="btn btn-ghost btn-back" data-back="start">Zurück</button>
+        </div>
+      </section>
+
+      <!-- Tierauswahl -->
+      <section id="screen-animal" class="screen" hidden>
+        <div class="panel">
+          <h2>Wähle dein Hero Pet</h2>
+          <div class="choice-row">
+            <button class="choice-card" data-animal="horse">
+              <span class="choice-icon" data-icon="horse" aria-hidden="true"></span>
+              <span class="choice-label">Pferd</span>
+            </button>
+            <button class="choice-card" data-animal="fox">
+              <span class="choice-icon" data-icon="fox" aria-hidden="true"></span>
+              <span class="choice-label">Polarfuchs</span>
+            </button>
+          </div>
+          <button class="btn btn-ghost btn-back" data-back="role">Zurück</button>
+        </div>
+      </section>
+
+      <!-- Character Creator -->
+      <section id="screen-creator" class="screen" hidden>
+        <div class="panel panel--creator">
+          <h2>Gestalte dein Hero Pet</h2>
+          <div class="creator-layout">
+            <div class="creator-preview">
+              <canvas id="creator-canvas" width="220" height="220"></canvas>
+              <input id="pet-name-input" type="text" maxlength="14" placeholder="Name deines Tiers" autocomplete="off" />
+            </div>
+            <div class="creator-options" id="creator-options">
+              <!-- wird per TS befüllt -->
+            </div>
+          </div>
+          <div class="creator-actions">
+            <button class="btn btn-ghost btn-back" data-back="animal">Zurück</button>
+            <button id="btn-start-game" class="btn btn-primary btn-lg">Los geht's!</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Spiel -->
+      <section id="screen-game" class="screen" hidden>
+        <div id="game-container"></div>
+
+        <div id="hud">
+          <div id="hud-mission" class="hud-panel"></div>
+          <button id="hud-menu-btn" class="hud-icon-btn" aria-label="Menü">☰</button>
+        </div>
+
+        <div id="touch-controls">
+          <div id="touch-joystick" class="touch-joystick">
+            <div id="touch-joystick-stick" class="touch-joystick__stick"></div>
+          </div>
+          <button id="touch-skill-btn" class="touch-skill-btn" aria-label="Fähigkeit einsetzen"></button>
+        </div>
+
+        <div id="dialogue-box" class="dialogue-box" hidden>
+          <p id="dialogue-text"></p>
+          <button id="dialogue-next" class="btn btn-primary">Weiter</button>
+        </div>
+
+        <div id="reward-overlay" class="overlay" hidden>
+          <div class="panel panel--center">
+            <h2>Mission geschafft! 🎉</h2>
+            <p id="reward-text"></p>
+            <button id="btn-reward-continue" class="btn btn-primary btn-lg">Weiterspielen</button>
+          </div>
+        </div>
+
+        <div id="pause-overlay" class="overlay" hidden>
+          <div class="panel panel--center">
+            <h2>Pause</h2>
+            <div class="button-stack">
+              <button id="btn-resume" class="btn btn-primary btn-lg">Weiterspielen</button>
+              <button id="btn-quit-to-menu" class="btn btn-secondary">Zum Hauptmenü</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
