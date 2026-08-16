@@ -169,8 +169,8 @@ export class MissionController {
       if (this.role === 'hero') this.companion.resumeFollowing();
       this.busy = false;
       this.setPlayerLocked(false);
-      showDialogue(beat.clearedDialogue, () => this.refreshHud());
       this.refreshHud();
+      showDialogue(beat.clearedDialogue);
     });
   }
 
