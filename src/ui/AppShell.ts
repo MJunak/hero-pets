@@ -5,6 +5,7 @@ import { createGameConfig } from '../game/GameConfig';
 import { showScreen } from './screenUtils';
 import { renderCreator } from './CreatorScreen';
 import { renderChoiceIcons } from './choiceIcons';
+import { renderTitleBanner } from './titleBanner';
 import { sfxClick, sfxSelect, unlockAudio } from '../audio/Sfx';
 import type { AnimalId, Role, SaveData } from '../types';
 
@@ -17,6 +18,7 @@ const btnReset = document.getElementById('btn-reset')!;
 
 export function startApp(): void {
   renderChoiceIcons();
+  renderTitleBanner();
   wireStartScreen();
   wireRoleScreen();
   wireAnimalScreen();

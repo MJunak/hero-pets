@@ -42,7 +42,7 @@ export function createDefaultSave(): SaveData {
         symbol: false
       }
     },
-    mission: { stage: 'not_started' },
+    mission: { stage: 'not_started', beatIndex: 0, starsCollected: [] },
     unlockedAccessories: [],
     createdAt: now,
     updatedAt: now

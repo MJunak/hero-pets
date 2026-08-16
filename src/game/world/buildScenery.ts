@@ -3,16 +3,24 @@ import {
   bridgePlankCanvas,
   bushCanvas,
   cloudCanvas,
+  flowerCanvas,
   groundTileCanvas,
   hqFlagCanvas,
   kittenCanvas,
+  logCanvas,
   particleDotCanvas,
   pathTileCanvas,
+  pineTreeCanvas,
+  pondCanvas,
   rockCanvas,
+  rockDecorCanvas,
   signCanvas,
+  starCollectibleCanvas,
+  thicketCanvas,
   treeCanvas
 } from '../../pixelart/scenery';
 import type { AccentColorId } from '../../types';
+import { MISSION_BEATS } from '../mission/beats';
 import {
   BRIDGE_END_X,
   BRIDGE_START_X,
@@ -22,23 +30,31 @@ import {
   HQ_X,
   MISSION_TARGET_X,
   MISSION_TARGET_Y,
-  OBSTACLE_X,
   WORLD_WIDTH
 } from './WorldLayout';
 
 const SCENERY_KEYS = {
   tree0: 'scenery-tree0',
   tree1: 'scenery-tree1',
+  pine: 'scenery-pine',
   bush: 'scenery-bush',
   cloud: 'scenery-cloud',
   rock: 'scenery-rock',
+  rockDecor: 'scenery-rock-decor',
+  log: 'scenery-log',
+  thicket: 'scenery-thicket',
+  pond: 'scenery-pond',
+  flowerRed: 'scenery-flower-red',
+  flowerYellow: 'scenery-flower-yellow',
+  flowerPurple: 'scenery-flower-purple',
   plank: 'scenery-plank',
   ground: 'scenery-ground',
   path: 'scenery-path',
   kitten: 'scenery-kitten',
   flag: 'scenery-flag',
   sign: 'scenery-sign',
-  particle: 'scenery-particle'
+  particle: 'scenery-particle',
+  star: 'scenery-star'
 } as const;
 
 export { SCENERY_KEYS };
@@ -50,9 +66,17 @@ export function preloadSceneryTextures(scene: Phaser.Scene, accent: AccentColorI
   };
   add(SCENERY_KEYS.tree0, treeCanvas(0));
   add(SCENERY_KEYS.tree1, treeCanvas(1));
+  add(SCENERY_KEYS.pine, pineTreeCanvas());
   add(SCENERY_KEYS.bush, bushCanvas());
   add(SCENERY_KEYS.cloud, cloudCanvas());
   add(SCENERY_KEYS.rock, rockCanvas());
+  add(SCENERY_KEYS.rockDecor, rockDecorCanvas());
+  add(SCENERY_KEYS.log, logCanvas());
+  add(SCENERY_KEYS.thicket, thicketCanvas());
+  add(SCENERY_KEYS.pond, pondCanvas());
+  add(SCENERY_KEYS.flowerRed, flowerCanvas('red'));
+  add(SCENERY_KEYS.flowerYellow, flowerCanvas('yellow'));
+  add(SCENERY_KEYS.flowerPurple, flowerCanvas('purple'));
   add(SCENERY_KEYS.plank, bridgePlankCanvas());
   add(SCENERY_KEYS.ground, groundTileCanvas());
   add(SCENERY_KEYS.path, pathTileCanvas());
@@ -60,14 +84,30 @@ export function preloadSceneryTextures(scene: Phaser.Scene, accent: AccentColorI
   add(SCENERY_KEYS.flag, hqFlagCanvas(accent));
   add(SCENERY_KEYS.sign, signCanvas());
   add(SCENERY_KEYS.particle, particleDotCanvas());
+  add(SCENERY_KEYS.star, starCollectibleCanvas());
 }
 
 export interface SceneryHandles {
-  rock: Phaser.GameObjects.Image;
+  obstacles: Map<string, Phaser.GameObjects.Image>;
   kitten: Phaser.GameObjects.Image;
 }
 
-export function buildScenery(scene: Phaser.Scene, obstacleAlreadyCleared: boolean): SceneryHandles {
+const BEAT_TEXTURE: Record<string, string> = {
+  rock: SCENERY_KEYS.rock,
+  log: SCENERY_KEYS.log,
+  thicket: SCENERY_KEYS.thicket
+};
+
+function scatter(
+  scene: Phaser.Scene,
+  positions: { x: number; y: number; key: string }[]
+): void {
+  for (const { x, y, key } of positions) {
+    scene.add.image(x, y, key).setOrigin(0.5, 1).setDepth(y);
+  }
+}
+
+export function buildScenery(scene: Phaser.Scene, beatIndexAlreadyCleared: number, missionCompleted: boolean): SceneryHandles {
   const sky = scene.add.graphics().setScrollFactor(0).setDepth(-200);
   const drawSky = () => {
     sky.clear();
@@ -78,8 +118,9 @@ export function buildScenery(scene: Phaser.Scene, obstacleAlreadyCleared: boolea
   scene.scale.on('resize', drawSky);
   scene.events.once('shutdown', () => scene.scale.off('resize', drawSky));
 
-  for (let i = 0; i < 6; i++) {
-    const x = 120 + i * 430 + Phaser.Math.Between(-60, 60);
+  const cloudCount = Math.round(WORLD_WIDTH / 420);
+  for (let i = 0; i < cloudCount; i++) {
+    const x = 120 + i * 420 + Phaser.Math.Between(-60, 60);
     const y = 40 + Phaser.Math.Between(0, 70);
     scene.add.image(x, y, SCENERY_KEYS.cloud).setScrollFactor(0.15).setDepth(-150).setAlpha(0.9);
   }
@@ -113,27 +154,70 @@ export function buildScenery(scene: Phaser.Scene, obstacleAlreadyCleared: boolea
   scene.add.image(HQ_X, GROUND_TOP + 40, SCENERY_KEYS.flag).setOrigin(0.5, 1).setDepth(GROUND_TOP + 40);
   scene.add.image(HQ_X + 60, GROUND_TOP + 70, SCENERY_KEYS.sign).setOrigin(0.5, 1).setDepth(GROUND_TOP + 70);
 
-  const treePositions = [340, 470, 640, 800, 970, 1130, 1760, 1930, 2100, 2260, 2400];
-  treePositions.forEach((x, i) => {
-    const y = GROUND_TOP - 10 + (i % 2 === 0 ? 0 : 12) + Phaser.Math.Between(-6, 6);
-    const key = i % 2 === 0 ? SCENERY_KEYS.tree0 : SCENERY_KEYS.tree1;
-    scene.add.image(x, y, key).setOrigin(0.5, 1).setDepth(y);
-  });
+  // Zone 1: Wald (Start bis zur Brücke)
+  scatter(scene, [
+    { x: 340, y: GROUND_TOP - 6, key: SCENERY_KEYS.tree0 },
+    { x: 470, y: GROUND_TOP + 8, key: SCENERY_KEYS.tree1 },
+    { x: 610, y: GROUND_TOP - 4, key: SCENERY_KEYS.tree0 },
+    { x: 750, y: GROUND_TOP + 10, key: SCENERY_KEYS.tree1 },
+    { x: 890, y: GROUND_TOP - 8, key: SCENERY_KEYS.tree0 },
+    { x: 480, y: GROUND_BOTTOM - 18, key: SCENERY_KEYS.bush },
+    { x: 760, y: GROUND_BOTTOM - 24, key: SCENERY_KEYS.bush },
+    { x: 900, y: GROUND_TOP + 40, key: SCENERY_KEYS.rockDecor }
+  ]);
 
-  const bushPositions = [480, 750, 1020, 1780, 2050, 2350];
-  bushPositions.forEach((x) => {
-    const y = GROUND_BOTTOM - 20 + Phaser.Math.Between(-8, 8);
-    scene.add.image(x, y, SCENERY_KEYS.bush).setOrigin(0.5, 1).setDepth(y);
-  });
+  // Zone 2: Wiese mit Teich (nach der Brücke)
+  scatter(scene, [
+    { x: 1230, y: GROUND_TOP + 6, key: SCENERY_KEYS.tree1 },
+    { x: 1300, y: GROUND_BOTTOM - 30, key: SCENERY_KEYS.flowerRed },
+    { x: 1360, y: GROUND_BOTTOM - 12, key: SCENERY_KEYS.flowerYellow },
+    { x: 1440, y: GROUND_BOTTOM - 26, key: SCENERY_KEYS.flowerPurple },
+    { x: 1700, y: GROUND_BOTTOM - 14, key: SCENERY_KEYS.flowerRed },
+    { x: 1800, y: GROUND_BOTTOM - 28, key: SCENERY_KEYS.flowerYellow },
+    { x: 1900, y: GROUND_BOTTOM - 16, key: SCENERY_KEYS.flowerPurple },
+    { x: 1650, y: GROUND_TOP + 50, key: SCENERY_KEYS.rockDecor },
+    { x: 1950, y: GROUND_TOP + 4, key: SCENERY_KEYS.tree0 }
+  ]);
+  scene.add.image(1560, GROUND_BOTTOM - 5, SCENERY_KEYS.pond).setOrigin(0.5, 1).setDepth(GROUND_TOP + 10);
 
-  const rock = scene.add.image(OBSTACLE_X, GROUND_TOP + 95, SCENERY_KEYS.rock).setOrigin(0.5, 1);
-  rock.setDepth(GROUND_TOP + 95);
-  if (obstacleAlreadyCleared) {
-    rock.setVisible(false);
-  }
+  // Zone 3: Nadelwald (nach dem Baumstamm)
+  scatter(scene, [
+    { x: 2280, y: GROUND_TOP - 6, key: SCENERY_KEYS.pine },
+    { x: 2420, y: GROUND_TOP + 10, key: SCENERY_KEYS.pine },
+    { x: 2560, y: GROUND_TOP - 4, key: SCENERY_KEYS.pine },
+    { x: 2700, y: GROUND_TOP + 8, key: SCENERY_KEYS.pine },
+    { x: 2850, y: GROUND_TOP - 8, key: SCENERY_KEYS.pine },
+    { x: 2980, y: GROUND_TOP + 6, key: SCENERY_KEYS.pine },
+    { x: 2350, y: GROUND_BOTTOM - 20, key: SCENERY_KEYS.bush },
+    { x: 2650, y: GROUND_BOTTOM - 22, key: SCENERY_KEYS.bush },
+    { x: 2900, y: GROUND_BOTTOM - 16, key: SCENERY_KEYS.bush },
+    { x: 2500, y: GROUND_TOP + 45, key: SCENERY_KEYS.rockDecor }
+  ]);
+
+  // Zone 4: Lichtung (Finale, nach dem Dickicht)
+  scatter(scene, [
+    { x: 3350, y: GROUND_TOP - 4, key: SCENERY_KEYS.tree1 },
+    { x: 3550, y: GROUND_TOP + 8, key: SCENERY_KEYS.tree0 },
+    { x: 3420, y: GROUND_BOTTOM - 24, key: SCENERY_KEYS.flowerYellow },
+    { x: 3600, y: GROUND_BOTTOM - 14, key: SCENERY_KEYS.flowerRed },
+    { x: 3800, y: GROUND_BOTTOM - 26, key: SCENERY_KEYS.flowerPurple },
+    { x: 3950, y: GROUND_BOTTOM - 16, key: SCENERY_KEYS.flowerYellow },
+    { x: 4100, y: GROUND_BOTTOM - 22, key: SCENERY_KEYS.flowerRed },
+    { x: 4180, y: GROUND_TOP - 6, key: SCENERY_KEYS.tree1 },
+    { x: 4380, y: GROUND_TOP + 4, key: SCENERY_KEYS.tree0 },
+    { x: 3700, y: GROUND_TOP + 40, key: SCENERY_KEYS.rockDecor }
+  ]);
+
+  const obstacles = new Map<string, Phaser.GameObjects.Image>();
+  MISSION_BEATS.forEach((beat, index) => {
+    const img = scene.add.image(beat.obstacleX, beat.obstacleY, BEAT_TEXTURE[beat.id]).setOrigin(0.5, 1);
+    img.setDepth(beat.obstacleY);
+    if (index < beatIndexAlreadyCleared || missionCompleted) img.setVisible(false);
+    obstacles.set(beat.id, img);
+  });
 
   const kitten = scene.add.image(MISSION_TARGET_X, MISSION_TARGET_Y + 30, SCENERY_KEYS.kitten).setOrigin(0.5, 1);
   kitten.setDepth(MISSION_TARGET_Y + 30);
 
-  return { rock, kitten };
+  return { obstacles, kitten };
 }

@@ -75,6 +75,25 @@ body {
   color: var(--color-text);
 }
 
+.title-banner {
+  display: flex;
+  justify-content: center;
+  margin: -8px -16px 8px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.6);
+}
+
+.title-banner canvas {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  display: block;
+}
+
 .logo {
   font-size: clamp(2.4rem, 8vw, 4rem);
   margin-bottom: 4px;
@@ -361,6 +380,13 @@ body {
   pointer-events: none;
 }
 
+.hud-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
 .hud-panel {
   pointer-events: none;
   background: rgba(255, 255, 255, 0.92);
@@ -369,6 +395,24 @@ body {
   font-weight: 700;
   box-shadow: 0 4px 0 rgba(0, 0, 0, 0.12);
   max-width: 60vw;
+}
+
+.hud-stars {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  color: #b8790a;
+}
+
+.hud-star-icon {
+  display: flex;
+}
+
+.hud-star-icon canvas {
+  width: 20px;
+  height: 20px;
+  image-rendering: pixelated;
 }
 
 .hud-icon-btn {

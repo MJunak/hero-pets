@@ -1,24 +1,34 @@
 import Phaser from 'phaser';
-import { getSaveData } from '../gameState';
+import { getSaveData, persist } from '../gameState';
 import { HERO_TEX_PREFIX, PET_TEX_PREFIX } from './BootScene';
 import { RiggedActor } from '../actors/RiggedActor';
 import { Companion } from '../actors/Companion';
 import { composeHero, composePet, visiblePartsFor } from '../../pixelart/compose';
+import { starCollectibleCanvas } from '../../pixelart/scenery';
 import { InputController } from '../../input/InputController';
 import { MissionController } from '../mission/MissionController';
-import { buildScenery, preloadSceneryTextures } from '../world/buildScenery';
-import { GROUND_BOTTOM, GROUND_TOP, OBSTACLE_X, SPAWN_X, SPAWN_Y, WORLD_WIDTH } from '../world/WorldLayout';
-import { isDialogueOpen } from '../../ui/dialogue';
+import { MISSION_BEATS } from '../mission/beats';
+import { CollectibleManager } from '../mission/collectibles';
+import { buildScenery, preloadSceneryTextures, SCENERY_KEYS } from '../world/buildScenery';
+import { GROUND_BOTTOM, GROUND_TOP, SPAWN_X, SPAWN_Y, WORLD_WIDTH } from '../world/WorldLayout';
+import { isDialogueOpen, showDialogue } from '../../ui/dialogue';
+import { sfxSuccess } from '../../audio/Sfx';
 
 const PLAYER_SPEED = 210;
+const FOOT_OFFSET_Y = 132;
+const DUST_INTERVAL_MS = 110;
 
 export class WorldScene extends Phaser.Scene {
   private player!: RiggedActor;
   private companion!: Companion;
   private controls!: InputController;
   private mission!: MissionController;
+  private collectibles!: CollectibleManager;
   private locked = false;
   private facing: 1 | -1 = 1;
+  private role!: 'hero' | 'pet';
+  private dustEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private dustTimer = 0;
 
   constructor() {
     super('world');
@@ -26,10 +36,11 @@ export class WorldScene extends Phaser.Scene {
 
   create(): void {
     const save = getSaveData();
+    this.role = save.role;
     preloadSceneryTextures(this, save.appearance.accentColor);
 
-    const obstacleCleared = save.mission.stage === 'obstacle_cleared' || save.mission.stage === 'completed';
-    const { rock, kitten } = buildScenery(this, obstacleCleared);
+    const missionCompleted = save.mission.stage === 'completed';
+    const { obstacles, kitten } = buildScenery(this, save.mission.beatIndex, missionCompleted);
 
     const petBundle = composePet(save.animal, save.appearance);
     const heroBundle = composeHero(save.appearance.accentColor);
@@ -72,7 +83,7 @@ export class WorldScene extends Phaser.Scene {
       role: save.role,
       playerActor: this.player,
       companion: this.companion,
-      rock,
+      obstacles,
       kitten,
       onHudTextChange: (text) => this.updateHud(text),
       onRewardEarned: (text) => this.showReward(text),
@@ -82,6 +93,25 @@ export class WorldScene extends Phaser.Scene {
     });
     this.mission.start();
 
+    this.collectibles = new CollectibleManager(
+      this,
+      (collected, total) => this.updateStarCount(collected, total),
+      () => this.onAllStarsCollected()
+    );
+
+    this.dustEmitter = this.add.particles(0, 0, SCENERY_KEYS.particle, {
+      speed: { min: 15, max: 45 },
+      angle: { min: 200, max: 340 },
+      gravityY: 260,
+      lifespan: 260,
+      scale: { start: 0.7, end: 0 },
+      tint: 0xcac37a,
+      quantity: 1,
+      emitting: false
+    });
+    this.dustEmitter.setDepth(50000);
+
+    this.setupStarIcon();
     this.setupPauseMenu();
     this.setupRewardOverlay();
 
@@ -99,11 +129,7 @@ export class WorldScene extends Phaser.Scene {
 
       nextX = Phaser.Math.Clamp(nextX, 40, WORLD_WIDTH - 40);
       nextY = Phaser.Math.Clamp(nextY, GROUND_TOP + 50, GROUND_BOTTOM - 30);
-
-      const stage = getSaveData().mission.stage;
-      if (stage !== 'obstacle_cleared' && stage !== 'completed') {
-        nextX = Math.min(nextX, OBSTACLE_X - 30);
-      }
+      nextX = Math.min(nextX, this.wallX());
 
       const moving = Math.abs(nextX - this.player.x) > 0.05 || Math.abs(nextY - this.player.y) > 0.05;
       if (moving) {
@@ -114,6 +140,12 @@ export class WorldScene extends Phaser.Scene {
       this.player.x = nextX;
       this.player.y = nextY;
       this.player.setMoving(moving);
+
+      this.dustTimer -= delta;
+      if (moving && this.dustTimer <= 0) {
+        this.dustEmitter.emitParticleAt(this.player.x, this.player.y + FOOT_OFFSET_Y);
+        this.dustTimer = DUST_INTERVAL_MS;
+      }
 
       if (this.controls.consumeSkillPressed()) {
         this.mission.tryUseAbility(this.player.x);
@@ -133,11 +165,46 @@ export class WorldScene extends Phaser.Scene {
     });
 
     this.mission.update(this.player.x, this.player.y);
+    this.collectibles.update(this.player.x, this.player.y);
+  }
+
+  /** Der Weg ist immer nur am jeweils nächsten, noch nicht befreiten Hindernis blockiert. */
+  private wallX(): number {
+    const beat = MISSION_BEATS[getSaveData().mission.beatIndex];
+    return beat ? beat.obstacleX - 30 : WORLD_WIDTH - 40;
+  }
+
+  private onAllStarsCollected(): void {
+    const save = getSaveData();
+    save.appearance.accessories.mask = true;
+    save.appearance.accessories.cape = true;
+    save.appearance.accessories.bandana = true;
+    save.appearance.accessories.symbol = true;
+    persist();
+    const pet = this.role === 'pet' ? this.player : this.companion.actor;
+    pet.setPartVisible('mask', true);
+    pet.setPartVisible('cape', true);
+    pet.setPartVisible('bandana', true);
+    pet.setPartVisible('symbol', true);
+    sfxSuccess();
+    showDialogue('Alle Sterne gesammelt! Euer Hero Pet trägt jetzt die volle Superhelden-Ausrüstung!');
   }
 
   private updateHud(text: string): void {
     const el = document.getElementById('hud-mission');
     if (el) el.textContent = text;
+  }
+
+  private updateStarCount(collected: number, total: number): void {
+    const el = document.getElementById('hud-star-count');
+    if (el) el.textContent = `${collected}/${total}`;
+  }
+
+  private setupStarIcon(): void {
+    const el = document.getElementById('hud-star-icon');
+    if (el && !el.querySelector('canvas')) {
+      el.appendChild(starCollectibleCanvas());
+    }
   }
 
   private showReward(text: string): void {

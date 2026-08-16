@@ -19,21 +19,21 @@ export interface PetAppearance {
   };
 }
 
-export type MissionStage =
-  | 'not_started'
-  | 'accepted'
-  | 'reached_obstacle'
-  | 'obstacle_cleared'
-  | 'completed';
+/** Gesamtfortschritt der Rettungsmission: eine Reihe von Hindernis-"Beats", danach das Finale. */
+export type MissionStage = 'not_started' | 'in_progress' | 'completed';
 
 export interface MissionProgress {
   stage: MissionStage;
+  /** Index des nächsten noch nicht befreiten Hindernisses in `MISSION_BEATS`. */
+  beatIndex: number;
+  /** IDs bereits eingesammelter Sterne. */
+  starsCollected: string[];
 }
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
-export interface SaveDataV1 {
-  version: 1;
+export interface SaveDataV2 {
+  version: 2;
   role: Role;
   animal: AnimalId;
   petName: string;
@@ -44,4 +44,4 @@ export interface SaveDataV1 {
   updatedAt: number;
 }
 
-export type SaveData = SaveDataV1;
+export type SaveData = SaveDataV2;

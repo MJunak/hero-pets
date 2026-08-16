@@ -18,6 +18,7 @@
       <!-- Startbildschirm -->
       <section id="screen-start" class="screen" hidden>
         <div class="panel panel--center">
+          <div id="title-banner" class="title-banner" aria-hidden="true"></div>
           <h1 class="logo">Hero&nbsp;Pets</h1>
           <p class="tagline">Werde ein Superheld – oder ein Superhelden-Tier!</p>
           <div class="button-stack">
@@ -89,7 +90,13 @@
         <div id="game-container"></div>
 
         <div id="hud">
-          <div id="hud-mission" class="hud-panel"></div>
+          <div class="hud-left">
+            <div id="hud-mission" class="hud-panel"></div>
+            <div id="hud-stars" class="hud-panel hud-stars">
+              <span id="hud-star-icon" class="hud-star-icon" aria-hidden="true"></span>
+              <span id="hud-star-count">0/0</span>
+            </div>
+          </div>
           <button id="hud-menu-btn" class="hud-icon-btn" aria-label="Menü">☰</button>
         </div>
 

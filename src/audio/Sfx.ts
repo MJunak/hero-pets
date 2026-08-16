@@ -55,6 +55,11 @@ export function sfxSuccess(): void {
   tone(784, 0.24, 0.28, 'triangle', 0.09);
 }
 
+export function sfxStar(): void {
+  tone(784, 0, 0.08, 'triangle', 0.07);
+  tone(1046, 0.06, 0.14, 'triangle', 0.08);
+}
+
 export function sfxStep(): void {
   tone(200 + Math.random() * 40, 0, 0.05, 'square', 0.02);
 }
