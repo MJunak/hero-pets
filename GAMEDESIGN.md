@@ -162,25 +162,15 @@ Pixelgrafik ist ausdrücklich gewünscht und passt auch gut zum begrenzten Umfan
 
 Das Spiel wird **nicht als klassisches 2D-Top-Down-Spiel** umgesetzt.
 
-Für den ersten Prototyp soll eine dieser Richtungen verwendet werden:
-
-### Bevorzugt
-
-**2D Side-Scroller mit leichter 2,5D-Wirkung**
-
-oder
-
-**seitliche / schräge Pixelwelt in Richtung Terraria, Starbound oder Stardew Valley**
-
-Die endgültige Perspektive kann beim ersten technischen Prototyp festgelegt werden.
+**Entscheidung (nach dem ersten spielbaren Prototyp getroffen):** reiner **2D-Side-Scroller** – Figur läuft auf einer festen Bodenlinie nach links/rechts und **springt** über Hindernisse. Keine 2,5D-Wirkung, kein freies Bewegen in einem Y-Band mehr (das war die erste Prototyp-Fassung und hat sich als zu wenig „richtiges Gameplay" angefühlt). Die ursprünglich als Referenz genannten Stardew-Valley/Terraria/Starbound-artigen schrägen Perspektiven wurden bewusst verworfen zugunsten eines klassischen, einfachen Jump-'n'-Run-Gefühls.
 
 Wichtig ist:
 
 * Figur bleibt gut sichtbar
-* Bewegung fühlt sich direkt an
-* Welt funktioniert auf Desktop und Tablet
+* Sprung fühlt sich direkt und vorhersehbar an (fester Sprungimpuls, keine variable Sprunghöhe)
+* Welt funktioniert auf Desktop und Tablet (Sprung-Taste bzw. Sprung-Button)
 * Pixel-Art-Assets bleiben relativ einfach erstellbar
-* Animationen von Pferd und Polarfuchs funktionieren überzeugend
+* Animationen von Pferd und Polarfuchs funktionieren überzeugend, auch in der Sprung-Pose
 
 \---
 

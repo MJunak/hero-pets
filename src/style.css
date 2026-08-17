@@ -464,14 +464,21 @@ body {
   transform: translate(-50%, -50%);
 }
 
+.touch-action-buttons {
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.touch-jump-btn,
 .touch-skill-btn {
   pointer-events: all;
-  width: 92px;
-  height: 92px;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
   border: 4px solid rgba(255, 255, 255, 0.7);
-  background: radial-gradient(circle at 35% 30%, #ffd23f, #ff8a3d 75%);
-  box-shadow: 0 6px 0 var(--color-primary-dark);
   cursor: pointer;
   touch-action: none;
   display: flex;
@@ -479,11 +486,27 @@ body {
   justify-content: center;
 }
 
+.touch-jump-btn {
+  background: radial-gradient(circle at 35% 30%, #6fc2f4, #2f8fd6 75%);
+  box-shadow: 0 6px 0 #1f6ba3;
+}
+
+.touch-skill-btn {
+  background: radial-gradient(circle at 35% 30%, #ffd23f, #ff8a3d 75%);
+  box-shadow: 0 6px 0 var(--color-primary-dark);
+}
+
+.touch-jump-btn canvas,
 .touch-skill-btn canvas {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   image-rendering: pixelated;
   pointer-events: none;
+}
+
+.touch-jump-btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #1f6ba3;
 }
 
 .touch-skill-btn:active {

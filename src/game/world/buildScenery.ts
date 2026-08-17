@@ -6,6 +6,9 @@ import {
   flowerCanvas,
   groundTileCanvas,
   hqFlagCanvas,
+  hurdleCrateCanvas,
+  hurdleRockCanvas,
+  hurdleStumpCanvas,
   kittenCanvas,
   logCanvas,
   particleDotCanvas,
@@ -21,17 +24,8 @@ import {
 } from '../../pixelart/scenery';
 import type { AccentColorId } from '../../types';
 import { MISSION_BEATS } from '../mission/beats';
-import {
-  BRIDGE_END_X,
-  BRIDGE_START_X,
-  GROUND_BOTTOM,
-  GROUND_TOP,
-  HORIZON_Y,
-  HQ_X,
-  MISSION_TARGET_X,
-  MISSION_TARGET_Y,
-  WORLD_WIDTH
-} from './WorldLayout';
+import { assertHurdlesClearOfBeats, JUMP_OBSTACLES } from './hurdles';
+import { BRIDGE_END_X, BRIDGE_START_X, GROUND_LINE_Y, HORIZON_Y, HQ_X, MISSION_TARGET_X, WORLD_WIDTH } from './WorldLayout';
 
 const SCENERY_KEYS = {
   tree0: 'scenery-tree0',
@@ -54,7 +48,10 @@ const SCENERY_KEYS = {
   flag: 'scenery-flag',
   sign: 'scenery-sign',
   particle: 'scenery-particle',
-  star: 'scenery-star'
+  star: 'scenery-star',
+  hurdleRock: 'scenery-hurdle-rock',
+  hurdleStump: 'scenery-hurdle-stump',
+  hurdleCrate: 'scenery-hurdle-crate'
 } as const;
 
 export { SCENERY_KEYS };
@@ -85,6 +82,9 @@ export function preloadSceneryTextures(scene: Phaser.Scene, accent: AccentColorI
   add(SCENERY_KEYS.sign, signCanvas());
   add(SCENERY_KEYS.particle, particleDotCanvas());
   add(SCENERY_KEYS.star, starCollectibleCanvas());
+  add(SCENERY_KEYS.hurdleRock, hurdleRockCanvas());
+  add(SCENERY_KEYS.hurdleStump, hurdleStumpCanvas());
+  add(SCENERY_KEYS.hurdleCrate, hurdleCrateCanvas());
 }
 
 export interface SceneryHandles {
@@ -98,16 +98,23 @@ const BEAT_TEXTURE: Record<string, string> = {
   thicket: SCENERY_KEYS.thicket
 };
 
-function scatter(
-  scene: Phaser.Scene,
-  positions: { x: number; y: number; key: string }[]
-): void {
+const HURDLE_TEXTURE: Record<Hurdle['textureKey'], string> = {
+  'scenery-hurdle-rock': SCENERY_KEYS.hurdleRock,
+  'scenery-hurdle-stump': SCENERY_KEYS.hurdleStump,
+  'scenery-hurdle-crate': SCENERY_KEYS.hurdleCrate
+};
+
+type Hurdle = (typeof JUMP_OBSTACLES)[number];
+
+function scatter(scene: Phaser.Scene, depth: number, positions: { x: number; y: number; key: string }[]): void {
   for (const { x, y, key } of positions) {
-    scene.add.image(x, y, key).setOrigin(0.5, 1).setDepth(y);
+    scene.add.image(x, y, key).setOrigin(0.5, 1).setDepth(depth);
   }
 }
 
 export function buildScenery(scene: Phaser.Scene, beatIndexAlreadyCleared: number, missionCompleted: boolean): SceneryHandles {
+  assertHurdlesClearOfBeats();
+
   const sky = scene.add.graphics().setScrollFactor(0).setDepth(-200);
   const drawSky = () => {
     sky.clear();
@@ -130,94 +137,90 @@ export function buildScenery(scene: Phaser.Scene, beatIndexAlreadyCleared: numbe
   const nearHills = scene.add.rectangle(WORLD_WIDTH / 2, HORIZON_Y + 90, WORLD_WIDTH + 1200, 140, 0x59a97c);
   nearHills.setScrollFactor(0.55).setDepth(-90);
 
-  const ground = scene.add.tileSprite(
-    WORLD_WIDTH / 2,
-    (GROUND_TOP + GROUND_BOTTOM + 60) / 2,
-    WORLD_WIDTH,
-    GROUND_BOTTOM - GROUND_TOP + 60,
-    SCENERY_KEYS.ground
-  );
+  const ground = scene.add.tileSprite(WORLD_WIDTH / 2, GROUND_LINE_Y + 70, WORLD_WIDTH, 220, SCENERY_KEYS.ground);
   ground.setDepth(-20);
 
-  const pathStrip = scene.add.tileSprite(WORLD_WIDTH / 2, (GROUND_TOP + GROUND_BOTTOM) / 2, WORLD_WIDTH, 70, SCENERY_KEYS.path);
+  const pathStrip = scene.add.tileSprite(WORLD_WIDTH / 2, GROUND_LINE_Y - 6, WORLD_WIDTH, 34, SCENERY_KEYS.path);
   pathStrip.setDepth(-19);
 
   const plankStrip = scene.add.tileSprite(
     (BRIDGE_START_X + BRIDGE_END_X) / 2,
-    (GROUND_TOP + GROUND_BOTTOM) / 2,
+    GROUND_LINE_Y - 6,
     BRIDGE_END_X - BRIDGE_START_X,
-    70,
+    34,
     SCENERY_KEYS.plank
   );
   plankStrip.setDepth(-18);
 
-  scene.add.image(HQ_X, GROUND_TOP + 40, SCENERY_KEYS.flag).setOrigin(0.5, 1).setDepth(GROUND_TOP + 40);
-  scene.add.image(HQ_X + 60, GROUND_TOP + 70, SCENERY_KEYS.sign).setOrigin(0.5, 1).setDepth(GROUND_TOP + 70);
+  scene.add.image(HQ_X, GROUND_LINE_Y, SCENERY_KEYS.flag).setOrigin(0.5, 1).setDepth(-15);
+  scene.add.image(HQ_X + 60, GROUND_LINE_Y, SCENERY_KEYS.sign).setOrigin(0.5, 1).setDepth(-15);
 
-  // Zone 1: Wald (Start bis zur Brücke)
-  scatter(scene, [
-    { x: 340, y: GROUND_TOP - 6, key: SCENERY_KEYS.tree0 },
-    { x: 470, y: GROUND_TOP + 8, key: SCENERY_KEYS.tree1 },
-    { x: 610, y: GROUND_TOP - 4, key: SCENERY_KEYS.tree0 },
-    { x: 750, y: GROUND_TOP + 10, key: SCENERY_KEYS.tree1 },
-    { x: 890, y: GROUND_TOP - 8, key: SCENERY_KEYS.tree0 },
-    { x: 480, y: GROUND_BOTTOM - 18, key: SCENERY_KEYS.bush },
-    { x: 760, y: GROUND_BOTTOM - 24, key: SCENERY_KEYS.bush },
-    { x: 900, y: GROUND_TOP + 40, key: SCENERY_KEYS.rockDecor }
+  const BG = -12;
+  const MID = -10;
+
+  // Zone 1: Wald (Start bis zum ersten Hindernis)
+  scatter(scene, BG, [
+    { x: 340, y: GROUND_LINE_Y, key: SCENERY_KEYS.tree0 },
+    { x: 470, y: GROUND_LINE_Y, key: SCENERY_KEYS.tree1 },
+    { x: 610, y: GROUND_LINE_Y, key: SCENERY_KEYS.tree0 },
+    { x: 890, y: GROUND_LINE_Y, key: SCENERY_KEYS.tree1 }
+  ]);
+  scatter(scene, MID, [
+    { x: 490, y: GROUND_LINE_Y, key: SCENERY_KEYS.bush },
+    { x: 950, y: GROUND_LINE_Y, key: SCENERY_KEYS.rockDecor }
   ]);
 
   // Zone 2: Wiese mit Teich (nach der Brücke)
-  scatter(scene, [
-    { x: 1230, y: GROUND_TOP + 6, key: SCENERY_KEYS.tree1 },
-    { x: 1300, y: GROUND_BOTTOM - 30, key: SCENERY_KEYS.flowerRed },
-    { x: 1360, y: GROUND_BOTTOM - 12, key: SCENERY_KEYS.flowerYellow },
-    { x: 1440, y: GROUND_BOTTOM - 26, key: SCENERY_KEYS.flowerPurple },
-    { x: 1700, y: GROUND_BOTTOM - 14, key: SCENERY_KEYS.flowerRed },
-    { x: 1800, y: GROUND_BOTTOM - 28, key: SCENERY_KEYS.flowerYellow },
-    { x: 1900, y: GROUND_BOTTOM - 16, key: SCENERY_KEYS.flowerPurple },
-    { x: 1650, y: GROUND_TOP + 50, key: SCENERY_KEYS.rockDecor },
-    { x: 1950, y: GROUND_TOP + 4, key: SCENERY_KEYS.tree0 }
+  scatter(scene, BG, [
+    { x: 1230, y: GROUND_LINE_Y, key: SCENERY_KEYS.tree1 },
+    { x: 1950, y: GROUND_LINE_Y, key: SCENERY_KEYS.tree0 }
   ]);
-  scene.add.image(1560, GROUND_BOTTOM - 5, SCENERY_KEYS.pond).setOrigin(0.5, 1).setDepth(GROUND_TOP + 10);
+  scatter(scene, MID, [
+    { x: 1300, y: GROUND_LINE_Y, key: SCENERY_KEYS.flowerRed },
+    { x: 1440, y: GROUND_LINE_Y, key: SCENERY_KEYS.flowerPurple },
+    { x: 1830, y: GROUND_LINE_Y, key: SCENERY_KEYS.flowerYellow },
+    { x: 1650, y: GROUND_LINE_Y, key: SCENERY_KEYS.rockDecor }
+  ]);
+  scene.add.image(1560, GROUND_LINE_Y, SCENERY_KEYS.pond).setOrigin(0.5, 1).setDepth(MID);
 
   // Zone 3: Nadelwald (nach dem Baumstamm)
-  scatter(scene, [
-    { x: 2280, y: GROUND_TOP - 6, key: SCENERY_KEYS.pine },
-    { x: 2420, y: GROUND_TOP + 10, key: SCENERY_KEYS.pine },
-    { x: 2560, y: GROUND_TOP - 4, key: SCENERY_KEYS.pine },
-    { x: 2700, y: GROUND_TOP + 8, key: SCENERY_KEYS.pine },
-    { x: 2850, y: GROUND_TOP - 8, key: SCENERY_KEYS.pine },
-    { x: 2980, y: GROUND_TOP + 6, key: SCENERY_KEYS.pine },
-    { x: 2350, y: GROUND_BOTTOM - 20, key: SCENERY_KEYS.bush },
-    { x: 2650, y: GROUND_BOTTOM - 22, key: SCENERY_KEYS.bush },
-    { x: 2900, y: GROUND_BOTTOM - 16, key: SCENERY_KEYS.bush },
-    { x: 2500, y: GROUND_TOP + 45, key: SCENERY_KEYS.rockDecor }
+  scatter(scene, BG, [
+    { x: 2380, y: GROUND_LINE_Y, key: SCENERY_KEYS.pine },
+    { x: 2560, y: GROUND_LINE_Y, key: SCENERY_KEYS.pine },
+    { x: 2760, y: GROUND_LINE_Y, key: SCENERY_KEYS.pine },
+    { x: 2980, y: GROUND_LINE_Y, key: SCENERY_KEYS.pine }
+  ]);
+  scatter(scene, MID, [
+    { x: 2350, y: GROUND_LINE_Y, key: SCENERY_KEYS.bush },
+    { x: 2960, y: GROUND_LINE_Y, key: SCENERY_KEYS.bush }
   ]);
 
   // Zone 4: Lichtung (Finale, nach dem Dickicht)
-  scatter(scene, [
-    { x: 3350, y: GROUND_TOP - 4, key: SCENERY_KEYS.tree1 },
-    { x: 3550, y: GROUND_TOP + 8, key: SCENERY_KEYS.tree0 },
-    { x: 3420, y: GROUND_BOTTOM - 24, key: SCENERY_KEYS.flowerYellow },
-    { x: 3600, y: GROUND_BOTTOM - 14, key: SCENERY_KEYS.flowerRed },
-    { x: 3800, y: GROUND_BOTTOM - 26, key: SCENERY_KEYS.flowerPurple },
-    { x: 3950, y: GROUND_BOTTOM - 16, key: SCENERY_KEYS.flowerYellow },
-    { x: 4100, y: GROUND_BOTTOM - 22, key: SCENERY_KEYS.flowerRed },
-    { x: 4180, y: GROUND_TOP - 6, key: SCENERY_KEYS.tree1 },
-    { x: 4380, y: GROUND_TOP + 4, key: SCENERY_KEYS.tree0 },
-    { x: 3700, y: GROUND_TOP + 40, key: SCENERY_KEYS.rockDecor }
+  scatter(scene, BG, [
+    { x: 3350, y: GROUND_LINE_Y, key: SCENERY_KEYS.tree1 },
+    { x: 4180, y: GROUND_LINE_Y, key: SCENERY_KEYS.tree0 },
+    { x: 4380, y: GROUND_LINE_Y, key: SCENERY_KEYS.tree1 }
+  ]);
+  scatter(scene, MID, [
+    { x: 3420, y: GROUND_LINE_Y, key: SCENERY_KEYS.flowerYellow },
+    { x: 3800, y: GROUND_LINE_Y, key: SCENERY_KEYS.flowerPurple },
+    { x: 4100, y: GROUND_LINE_Y, key: SCENERY_KEYS.flowerRed }
   ]);
 
   const obstacles = new Map<string, Phaser.GameObjects.Image>();
   MISSION_BEATS.forEach((beat, index) => {
     const img = scene.add.image(beat.obstacleX, beat.obstacleY, BEAT_TEXTURE[beat.id]).setOrigin(0.5, 1);
-    img.setDepth(beat.obstacleY);
+    img.setDepth(-5);
     if (index < beatIndexAlreadyCleared || missionCompleted) img.setVisible(false);
     obstacles.set(beat.id, img);
   });
 
-  const kitten = scene.add.image(MISSION_TARGET_X, MISSION_TARGET_Y + 30, SCENERY_KEYS.kitten).setOrigin(0.5, 1);
-  kitten.setDepth(MISSION_TARGET_Y + 30);
+  for (const hurdle of JUMP_OBSTACLES) {
+    scene.add.image(hurdle.x, GROUND_LINE_Y, HURDLE_TEXTURE[hurdle.textureKey]).setOrigin(0.5, 1).setDepth(-8);
+  }
+
+  const kitten = scene.add.image(MISSION_TARGET_X, GROUND_LINE_Y, SCENERY_KEYS.kitten).setOrigin(0.5, 1);
+  kitten.setDepth(-5);
 
   return { obstacles, kitten };
 }

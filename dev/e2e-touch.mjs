@@ -59,8 +59,25 @@ await page.evaluate(({ cx, cy }) => {
 await page.waitForTimeout(1500);
 await shot('02-after-joystick-drag');
 
-const xAfterDrag = await page.evaluate(() => JSON.parse(localStorage.getItem('hero-pets:save') || '{}').mission?.stage);
-console.log('mission stage (sanity):', xAfterDrag);
+const posAfterDrag = await page.evaluate(() => window.__hpDebug?.());
+console.log('position after joystick drag (should have moved right from spawn x=140):', posAfterDrag);
+
+// release joystick so movement stops before testing the jump button in isolation
+await page.evaluate(({ cx, cy }) => {
+  const target = document.getElementById('touch-joystick');
+  target.dispatchEvent(new PointerEvent('pointerup', { clientX: cx, clientY: cy, pointerId: 1, bubbles: true, cancelable: true }));
+}, { cx, cy });
+await page.waitForTimeout(300);
+
+// tap the jump button and sample position shortly after to confirm airborne motion
+await page.evaluate(() => {
+  const btn = document.getElementById('touch-jump-btn');
+  btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId: 3 }));
+});
+await page.waitForTimeout(150);
+const posMidJump = await page.evaluate(() => window.__hpDebug?.());
+console.log('position ~150ms after tapping jump button (grounded should be false, jumpH > 0):', posMidJump);
+await shot('03-after-jump-tap');
 
 // tap the skill button
 await page.evaluate(() => {
@@ -68,7 +85,7 @@ await page.evaluate(() => {
   btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId: 2 }));
 });
 await page.waitForTimeout(800);
-await shot('03-after-skill-tap');
+await shot('04-after-skill-tap');
 
 await browser.close();
 console.log('done');

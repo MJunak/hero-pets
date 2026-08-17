@@ -1,5 +1,5 @@
 import { composeFlatCanvas, composePet, visiblePartsFor } from '../pixelart/compose';
-import { heroIconCanvas, pawIconCanvas, sparkleIconCanvas } from '../pixelart/scenery';
+import { heroIconCanvas, jumpIconCanvas, pawIconCanvas, sparkleIconCanvas } from '../pixelart/scenery';
 import type { PetAppearance } from '../types';
 
 const PREVIEW_APPEARANCE: PetAppearance = {
@@ -45,5 +45,10 @@ export function renderChoiceIcons(): void {
   const skillBtn = document.getElementById('touch-skill-btn');
   if (skillBtn && !skillBtn.querySelector('canvas')) {
     skillBtn.appendChild(sparkleIconCanvas(44));
+  }
+
+  const jumpBtn = document.getElementById('touch-jump-btn');
+  if (jumpBtn && !jumpBtn.querySelector('canvas')) {
+    jumpBtn.appendChild(jumpIconCanvas(40));
   }
 }

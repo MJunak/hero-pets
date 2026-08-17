@@ -13,18 +13,24 @@ async function shot(name) {
   console.log('shot', name);
 }
 
-async function drainDialogue(maxMs = 4000) {
-  const step = 200;
-  let elapsed = 0;
-  while (elapsed < maxMs) {
-    const box = page.locator('#dialogue-box');
+async function debug() {
+  return page.evaluate(() => window.__hpDebug?.());
+}
+
+async function drainDialogue(maxMs = 5000) {
+  const box = page.locator('#dialogue-box');
+  const deadline = Date.now() + maxMs;
+  let sawIt = false;
+  while (Date.now() < deadline) {
     if (await box.isVisible()) {
+      sawIt = true;
       await page.click('#dialogue-next');
-      await page.waitForTimeout(step);
-    } else {
+      await page.waitForTimeout(150);
+    } else if (sawIt) {
       return;
+    } else {
+      await page.waitForTimeout(100);
     }
-    elapsed += step;
   }
 }
 
@@ -35,33 +41,52 @@ async function getStage() {
   return page.evaluate(() => JSON.parse(localStorage.getItem('hero-pets:save')).mission.stage);
 }
 
-// Hält eine Taste für `ms`, räumt dabei laufend auftauchende Dialoge weg.
-async function holdKey(key, ms) {
-  await page.keyboard.down(key);
-  const step = 300;
+/**
+ * Haelt "nach rechts" (mit periodischen Space-Druecken fuer Huerden) bis sich
+ * die Spielerposition ueber `stillMs` nicht mehr veraendert (= an einer Wand
+ * angekommen) oder `maxMs` erreicht ist. Deutlich robuster als eine feste
+ * Wartezeit, weil dieses Test-Chromium unterschiedlich schnell laeuft.
+ */
+async function runRightUntilStuck(maxMs = 40000, stillMs = 900) {
+  await page.keyboard.down('ArrowRight');
+  const step = 200;
   let elapsed = 0;
-  while (elapsed < ms) {
+  let lastX = null;
+  let stillFor = 0;
+  while (elapsed < maxMs) {
+    if (await page.locator('#reward-overlay').isVisible()) break;
+    await page.keyboard.press('Space');
     await page.waitForTimeout(step);
     elapsed += step;
     const box = page.locator('#dialogue-box');
-    if (await box.isVisible()) await page.click('#dialogue-next');
+    if (await box.isVisible()) {
+      await page.click('#dialogue-next').catch(() => {});
+      stillFor = 0;
+      continue;
+    }
+    const d = await debug();
+    if (d && lastX !== null && Math.abs(d.x - lastX) < 0.5) {
+      stillFor += step;
+      if (stillFor >= stillMs) break;
+    } else {
+      stillFor = 0;
+    }
+    lastX = d?.x ?? lastX;
   }
-  await page.keyboard.up(key);
+  await page.keyboard.up('ArrowRight');
   await drainDialogue();
 }
 
-async function walkAndClearBeat(label, legMs) {
+async function clearCurrentBeat(label) {
   const before = await getBeatIndex();
-  for (let attempt = 0; attempt < 3; attempt++) {
-    await holdKey('ArrowRight', legMs);
-    await page.keyboard.press('Space');
-    await page.waitForTimeout(1600);
+  for (let attempt = 0; attempt < 4 && (await getBeatIndex()) === before; attempt++) {
+    await runRightUntilStuck();
+    await page.keyboard.press('Shift');
+    await page.waitForTimeout(1500);
     await drainDialogue();
-    const after = await getBeatIndex();
-    if (after > before) break;
   }
   await shot(label);
-  console.log(label, 'beatIndex now:', await getBeatIndex());
+  console.log(label, 'beatIndex now:', await getBeatIndex(), 'pos:', await debug());
 }
 
 await page.goto(BASE, { waitUntil: 'networkidle' });
@@ -71,17 +96,15 @@ await page.click('[data-animal="horse"]');
 await page.waitForTimeout(200);
 await page.fill('#pet-name-input', 'Sternenlaeufer');
 await page.click('#btn-start-game');
-await page.waitForTimeout(700);
 await drainDialogue();
 
-await walkAndClearBeat('beat1-cleared', 15000);
-await walkAndClearBeat('beat2-cleared', 15000);
-await walkAndClearBeat('beat3-cleared', 15000);
+await clearCurrentBeat('beat1-cleared');
+await clearCurrentBeat('beat2-cleared');
+await clearCurrentBeat('beat3-cleared');
 
 // Zum Kätzchen laufen
-for (let attempt = 0; attempt < 3; attempt++) {
-  await holdKey('ArrowRight', 15000);
-  if ((await getStage()) === 'completed') break;
+for (let attempt = 0; attempt < 4 && (await getStage()) !== 'completed'; attempt++) {
+  await runRightUntilStuck();
 }
 await shot('near-kitten');
 const rewardVisible = await page.locator('#reward-overlay').isVisible();

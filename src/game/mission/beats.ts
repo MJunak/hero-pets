@@ -1,4 +1,4 @@
-import { OBSTACLE_ANCHOR_Y } from '../world/WorldLayout';
+import { GROUND_LINE_Y } from '../world/WorldLayout';
 
 export interface MissionBeat {
   id: string;
@@ -23,7 +23,7 @@ export const MISSION_BEATS: MissionBeat[] = [
   {
     id: 'rock',
     obstacleX: 1090,
-    obstacleY: OBSTACLE_ANCHOR_Y,
+    obstacleY: GROUND_LINE_Y,
     triggerRange: 150,
     useRange: 190,
     textureKey: 'scenery-rock',
@@ -37,7 +37,7 @@ export const MISSION_BEATS: MissionBeat[] = [
   {
     id: 'log',
     obstacleX: 2150,
-    obstacleY: OBSTACLE_ANCHOR_Y,
+    obstacleY: GROUND_LINE_Y,
     triggerRange: 150,
     useRange: 190,
     textureKey: 'scenery-log',
@@ -51,7 +51,7 @@ export const MISSION_BEATS: MissionBeat[] = [
   {
     id: 'thicket',
     obstacleX: 3200,
-    obstacleY: OBSTACLE_ANCHOR_Y,
+    obstacleY: GROUND_LINE_Y,
     triggerRange: 150,
     useRange: 190,
     textureKey: 'scenery-thicket',

@@ -5,9 +5,12 @@ import { getSaveData, persist } from '../gameState';
 import type { Role } from '../../types';
 import type { RiggedActor } from '../actors/RiggedActor';
 import type { Companion } from '../actors/Companion';
-import { GROUND_TOP } from '../world/WorldLayout';
 import { SCENERY_KEYS } from '../world/buildScenery';
+import { GROUND_LINE_Y } from '../world/WorldLayout';
+import { FEET_OFFSET } from '../../pixelart/rig';
 import { MISSION_BEATS } from './beats';
+
+const GROUNDED_Y = GROUND_LINE_Y - FEET_OFFSET;
 
 const TARGET_TRIGGER_RANGE = 110;
 
@@ -62,7 +65,7 @@ export class MissionController {
         showDialogue(
           [
             'Willkommen bei den Hero Pets! Ein kleines Kätzchen hat sich weit im Wald verlaufen und braucht eure Hilfe.',
-            'Der Weg dorthin ist versperrt – gleich mehrfach! Folgt dem Pfad und nutzt eure Hero-Pet-Kraft, sobald ihr auf ein Hindernis trefft.'
+            'Springt mit der Leertaste über kleine Hindernisse! An größeren Wegversperrern nutzt eure Hero-Pet-Kraft (Umschalttaste).'
           ],
           () => {
             const save = getSaveData();
@@ -129,13 +132,10 @@ export class MissionController {
     this.setPlayerLocked(true);
     sfxAbility();
 
-    const obstacleImg = this.obstacles.get(beat.id);
-
     if (this.role === 'pet') {
       this.playerActor.playAbility(600);
     } else {
-      const targetY = obstacleImg ? obstacleImg.y - 20 : beat.obstacleY - 20;
-      this.companion.commandMoveTo(beat.obstacleX - 34, targetY, () => {
+      this.companion.commandMoveTo(beat.obstacleX - 34, GROUNDED_Y, () => {
         this.companion.actor.playAbility(600);
       });
     }
@@ -213,7 +213,7 @@ export class MissionController {
       quantity: 16,
       emitting: false
     });
-    particles.setDepth(GROUND_TOP + 200);
+    particles.setDepth(9000);
     particles.explode(16);
     this.scene.time.delayedCall(700, () => particles.destroy());
   }
@@ -231,9 +231,7 @@ export class MissionController {
     const beat = MISSION_BEATS[mission.beatIndex];
     if (beat) {
       const step = mission.beatIndex + 1;
-      this.onHudTextChange(
-        `Hindernis ${step}/${MISSION_BEATS.length}: Folgt dem Weg und nutzt eure Kraft (Leertaste / ✨)!`
-      );
+      this.onHudTextChange(`Hindernis ${step}/${MISSION_BEATS.length}: Springen (Leertaste), Kraft (Umschalttaste)!`);
     } else {
       this.onHudTextChange('Fast geschafft! Rettet das Kätzchen ganz in der Nähe!');
     }

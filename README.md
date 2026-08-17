@@ -25,16 +25,26 @@ npm run preview    # Baut nicht neu, dient nur zum lokalen Testen von dist/
 
 ## Entscheidungen aus Abschnitt 18
 
-1. **Perspektive:** 2D-Side-Scroller mit leichter 2,5D-Wirkung – Figuren bewegen sich frei in einem schmalen Y-Band, Tiefe entsteht durch Y-Sortierung (weiter „vorne" = größer im Depth-Stacking) und mehrstufiges Parallax-Scrolling (Himmel, Hügel, Boden).
+1. **Perspektive:** reiner 2D-Side-Scroller – Figuren laufen auf einer festen Bodenlinie (`GROUND_LINE_Y`) nach links/rechts und **springen** über Hindernisse. Nach erstem Prototyp (freies Bewegen in einem Y-Band, 2,5D-artig) bewusst verworfen zugunsten eines klassischen, direkten Jump-'n'-Run-Gefühls. Tiefe entsteht nur noch durch mehrstufiges Parallax-Scrolling (Himmel, Hügel, Boden), nicht mehr durch Y-Sortierung.
 2. **Fähigkeit Pferd:** „Kraft-Tritt" – zertrümmert den Felsen, der die Brücke blockiert.
 3. **Fähigkeit Polarfuchs:** dieselbe Aktion, andere Erzählung/Farbe (Frost-Effekt) – technisch ein generischer, wiederverwendbarer „Power-Pose"-Animationsablauf (Squash → Sprung → Stoß), damit Held- und Tier-Rolle exakt denselben Missionsablauf unterstützen.
 4. **Geschichte der ersten Mission:** Ein Kätzchen hat sich tief im Wald verlaufen. Der Weg dorthin ist **dreifach** blockiert – Felsen/Brücke, umgestürzter Baumstamm, dorniges Gestrüpp –, jedes Hindernis in einer eigenen, optisch unterschiedlichen Zone (Wald → Wiese mit Teich → Nadelwald → Lichtung). Ablauf: Intro-Dialog → Hindernis 1 entdecken → Kraft einsetzen → Hindernis 2 → Kraft einsetzen → Hindernis 3 → Kraft einsetzen → Kätzchen erreichen → Belohnung (Freischaltung des Superhelden-Symbols) → Fortschritt wird gespeichert. Die Mission ist als Beat-Liste modelliert (`src/game/mission/beats.ts`), sodass weitere Hindernisse später ohne Änderungen an der Steuerungslogik ergänzt werden können.
 5. **Companion-Logik:** Steuert der Spieler den Helden, folgt ihm das Tier (und umgekehrt) mit Verzögerung. Beim Fähigkeits-Einsatz „ruft" der Held sein Tier, das kurz zum jeweiligen Hindernis läuft und dort seine Kraft einsetzt – so bleibt die Mission unabhängig von der gewählten Rolle lösbar.
-6. **Hindernisse der ersten Mission:** Felsen auf der Brücke, Baumstamm, Dornengestrüpp (siehe oben).
+6. **Hindernisse der ersten Mission:** zwei Hindernis-Arten mit klar getrennter Mechanik. **Story-Hindernisse** (Felsen, Baumstamm, Dornengestrüpp) blockieren den Weg vollständig und lassen sich nur mit der Hero-Pet-Kraft räumen (`src/game/mission/beats.ts`, `MissionController`). **Sprung-Hürden** (zwölf kleine Hindernisse über die ganze Welt verteilt, drei Höhenstufen: Stein/Stumpf/Kiste) blockieren nur, bis man hoch genug drüberspringt (`src/game/world/hurdles.ts`, `src/game/world/collision.ts`) – kein Kraft-Einsatz nötig. Ein Boot-Check (`assertHurdlesClearOfBeats`) stellt sicher, dass keine Sprung-Hürde in die Reichweite eines Story-Hindernisses hineinragt, sonst wäre der Weg unlösbar.
 7. **Optischer Stil:** Pferd und Polarfuchs sind bewusst unterschiedlich proportioniert (Fuchs: rundlicher Körper, große spitze Ohren, buschiger Schwanz, kürzere Beine) für klare Lesbarkeit auf einen Blick.
 8. **Erste Customization-Items:** Fellfarbe, Augenfarbe, Akzentfarbe (färbt Mähne/Schweif und alle Accessoires), Mähnenstil bzw. Fellvariante, sowie vier Accessoires (Maske, Cape, Halstuch, Superhelden-Symbol). Der Held hat ein festes, dafür mit der Tierfarbe abgestimmtes Kostüm (kein eigener Creator-Schritt nötig, spart Umfang ohne Funktionsverlust).
 9. **Assets:** vollständig prozedural generiert (siehe oben) statt handgezeichneter/generierter Bilddateien – reproduzierbar, editierbar, ohne Asset-Pipeline.
 10. **Sound:** keine Audio-Dateien, sondern kurze WebAudio-Synth-Sounds (`src/audio/Sfx.ts`) für Auswahl, Fähigkeit, Erfolg etc. – ausreichend für kindgerechtes Feedback im MVP.
+
+## Bewegung & Sprungphysik
+
+Nach Feedback, dass die freie 2,5D-Bewegung "zu wenig echtes Gameplay" bot, wurde die Bewegung komplett auf einen klassischen Jump-'n'-Run-Sidescroller umgestellt:
+
+- **Eigene, einfache Schwerkraft** (`src/game/world/jumpPhysics.ts`) statt Phaser Arcade Physics – der Figuren-Container (`RiggedActor`) hat kein sinnvolles Arcade-Body-Rechteck (Ursprung oben links, Figur breiter als "sichtbar"), eine selbstgeschriebene Vertikal-Bewegung war einfacher als Arcade Physics an das bestehende Rig anzupassen. Fester Sprungimpuls, keine variable Sprunghöhe (kindgerecht: jeder Sprung fühlt sich gleich an, kein "zu kurz gedrückt").
+- **Zwei Hindernis-Mechaniken** (siehe Abschnitt 18, Punkt 6 oben): kleine Sprung-Hürden (nur Timing) und große Story-Hindernisse (nur Kraft-Einsatz).
+- **Steuerung:** Leertaste/Pfeil-hoch/W = springen, Umschalttaste = Fähigkeit einsetzen (Touch: zwei gestapelte Buttons unten rechts, Joystick unten links steuert nur noch horizontal).
+- **Kamera:** folgt nur noch horizontal (`Camera.startFollow` mit `lerpY = 0`, zusätzlich abgesichert durch `cameraBounds.height === viewportHeight`), keine Y-Sortierung mehr nötig, da alle Figuren auf derselben Bodenlinie stehen.
+- Begleit-Tier/-Held hüpft automatisch über Hürden, die ihm beim Folgen im Weg stehen (`Companion.ts`), damit es nicht sichtbar hängen bleibt.
 
 ## Zusätzlicher Content über das MVP-Minimum hinaus
 
@@ -48,5 +58,5 @@ Nach erstem Feedback wurde bewusst mehr Umfang eingebaut, als §2 des Game-Desig
 ## Bekannte Grenzen dieser ersten Version
 
 - Die Weltbreite/-höhe ist auf typische Desktop- und Tablet-Viewports (Querformat) ausgelegt; auf sehr schmalen Hochformat-Bildschirmen (Smartphones) bleibt am unteren Rand ungenutzter Himmel – laut Spezifikation nicht die primäre Zielplattform.
-- Der GitHub-Actions-Workflow wurde nicht gegen ein echtes GitHub-Pages-Deployment verifiziert (kein Remote-Push in dieser Session).
+- Sprung-Hürden lassen sich nur überspringen, nicht darauf landen (keine Plattform-Mechanik) – bewusst einfach gehalten, siehe „einfach" in der Anforderung.
 - Touch-Steuerung wurde mit simulierten Touch-/Pointer-Events (Playwright, iPad-Emulation) getestet, nicht auf echter Tablet-Hardware.

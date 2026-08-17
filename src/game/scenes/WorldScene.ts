@@ -5,18 +5,22 @@ import { RiggedActor } from '../actors/RiggedActor';
 import { Companion } from '../actors/Companion';
 import { composeHero, composePet, visiblePartsFor } from '../../pixelart/compose';
 import { starCollectibleCanvas } from '../../pixelart/scenery';
+import { FEET_OFFSET } from '../../pixelart/rig';
 import { InputController } from '../../input/InputController';
 import { MissionController } from '../mission/MissionController';
 import { MISSION_BEATS } from '../mission/beats';
 import { CollectibleManager } from '../mission/collectibles';
 import { buildScenery, preloadSceneryTextures, SCENERY_KEYS } from '../world/buildScenery';
-import { GROUND_BOTTOM, GROUND_TOP, SPAWN_X, SPAWN_Y, WORLD_WIDTH } from '../world/WorldLayout';
+import { GROUND_LINE_Y, SPAWN_X, WORLD_WIDTH } from '../world/WorldLayout';
+import { JUMP_OBSTACLES } from '../world/hurdles';
+import { resolveHurdleX } from '../world/collision';
+import { createVerticalState, jumpHeight, stepVertical, type VerticalState } from '../world/jumpPhysics';
 import { isDialogueOpen, showDialogue } from '../../ui/dialogue';
 import { sfxSuccess } from '../../audio/Sfx';
 
 const PLAYER_SPEED = 210;
-const FOOT_OFFSET_Y = 132;
 const DUST_INTERVAL_MS = 110;
+const GROUNDED_Y = GROUND_LINE_Y - FEET_OFFSET;
 
 export class WorldScene extends Phaser.Scene {
   private player!: RiggedActor;
@@ -29,6 +33,7 @@ export class WorldScene extends Phaser.Scene {
   private role!: 'hero' | 'pet';
   private dustEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
   private dustTimer = 0;
+  private vertical: VerticalState = createVerticalState();
 
   constructor() {
     super('world');
@@ -60,19 +65,22 @@ export class WorldScene extends Phaser.Scene {
 
     if (save.role === 'pet') {
       this.player = petActor;
-      this.companion = new Companion(heroActor, SPAWN_X - 80, SPAWN_Y);
+      this.companion = new Companion(heroActor, SPAWN_X - 80, GROUNDED_Y);
     } else {
       this.player = heroActor;
-      this.companion = new Companion(petActor, SPAWN_X - 80, SPAWN_Y);
+      this.companion = new Companion(petActor, SPAWN_X - 80, GROUNDED_Y);
     }
-    this.player.setPosition(SPAWN_X, SPAWN_Y);
+    this.player.setPosition(SPAWN_X, GROUNDED_Y);
+    this.player.setDepth(1);
 
     const cam = this.cameras.main;
-    const updateCamBounds = () => cam.setBounds(0, 0, WORLD_WIDTH, this.scale.height);
+    const updateCamBounds = () => {
+      cam.setBounds(0, 0, WORLD_WIDTH, this.scale.height);
+      cam.scrollY = 0;
+    };
     updateCamBounds();
-    cam.centerOn(this.player.x, this.player.y);
-    cam.startFollow(this.player, true, 0.09, 0.09);
-    cam.setDeadzone(120, 80);
+    cam.centerOn(this.player.x, this.scale.height / 2);
+    cam.startFollow(this.player, true, 0.09, 0);
     this.scale.on('resize', updateCamBounds);
     this.events.once('shutdown', () => this.scale.off('resize', updateCamBounds));
 
@@ -111,6 +119,15 @@ export class WorldScene extends Phaser.Scene {
     });
     this.dustEmitter.setDepth(50000);
 
+    // Für dev/*.mjs-Testskripte: erlaubt, Position/Sprungzustand ohne Screenshot-Rätselraten abzufragen.
+    (window as unknown as Record<string, unknown>).__hpDebug = () => ({
+      x: this.player.x,
+      y: this.player.y,
+      grounded: this.vertical.grounded,
+      velocityY: this.vertical.velocityY,
+      jumpH: GROUNDED_Y - this.player.y
+    });
+
     this.setupStarIcon();
     this.setupPauseMenu();
     this.setupRewardOverlay();
@@ -121,29 +138,33 @@ export class WorldScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     const dialogueOpen = isDialogueOpen();
     const canMove = !this.locked && !dialogueOpen && !this.player.isPlayingAbility;
+    const dt = delta / 1000;
 
     if (canMove) {
-      const move = this.controls.getMoveVector();
-      let nextX = this.player.x + move.x * PLAYER_SPEED * (delta / 1000);
-      let nextY = this.player.y + move.y * PLAYER_SPEED * (delta / 1000);
+      const moveX = this.controls.getMoveX();
+      const wantsJump = this.controls.consumeJumpPressed();
 
+      let nextX = this.player.x + moveX * PLAYER_SPEED * dt;
       nextX = Phaser.Math.Clamp(nextX, 40, WORLD_WIDTH - 40);
-      nextY = Phaser.Math.Clamp(nextY, GROUND_TOP + 50, GROUND_BOTTOM - 30);
       nextX = Math.min(nextX, this.wallX());
 
-      const moving = Math.abs(nextX - this.player.x) > 0.05 || Math.abs(nextY - this.player.y) > 0.05;
-      if (moving) {
+      const currentJumpHeight = jumpHeight(this.player.y, GROUNDED_Y);
+      nextX = resolveHurdleX(this.player.x, nextX, currentJumpHeight, JUMP_OBSTACLES);
+
+      const movingX = Math.abs(nextX - this.player.x) > 0.05;
+      if (movingX) {
         if (nextX - this.player.x > 0.01) this.facing = 1;
         else if (nextX - this.player.x < -0.01) this.facing = -1;
         this.player.setFacing(this.facing);
       }
       this.player.x = nextX;
-      this.player.y = nextY;
-      this.player.setMoving(moving);
+      this.player.y = stepVertical(this.player.y, this.vertical, dt, GROUNDED_Y, wantsJump);
+      this.player.setAirborne(!this.vertical.grounded, this.vertical.velocityY);
+      this.player.setMoving(movingX && this.vertical.grounded);
 
       this.dustTimer -= delta;
-      if (moving && this.dustTimer <= 0) {
-        this.dustEmitter.emitParticleAt(this.player.x, this.player.y + FOOT_OFFSET_Y);
+      if (movingX && this.vertical.grounded && this.dustTimer <= 0) {
+        this.dustEmitter.emitParticleAt(this.player.x, this.player.y + FEET_OFFSET);
         this.dustTimer = DUST_INTERVAL_MS;
       }
 
@@ -152,10 +173,10 @@ export class WorldScene extends Phaser.Scene {
       }
     } else {
       this.player.setMoving(false);
+      this.controls.consumeJumpPressed();
       if (!dialogueOpen && !this.locked) this.controls.consumeSkillPressed();
     }
 
-    this.player.setDepth(this.player.y);
     this.player.update(time);
 
     this.companion.update(time, delta, {
@@ -164,8 +185,8 @@ export class WorldScene extends Phaser.Scene {
       facing: this.facing
     });
 
-    this.mission.update(this.player.x, this.player.y);
-    this.collectibles.update(this.player.x, this.player.y);
+    this.mission.update(this.player.x, this.player.y + FEET_OFFSET);
+    this.collectibles.update(this.player.x, this.player.y + FEET_OFFSET);
   }
 
   /** Der Weg ist immer nur am jeweils nächsten, noch nicht befreiten Hindernis blockiert. */

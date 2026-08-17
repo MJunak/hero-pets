@@ -23,6 +23,8 @@ export class RiggedActor extends Phaser.GameObjects.Container {
   private abilityStart = 0;
   private abilityDuration = 0;
   private gaitPhase = Math.random() * Math.PI * 2;
+  private airborne = false;
+  private airborneVelocityY = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, opts: RiggedActorOptions) {
     super(scene, x, y);
@@ -55,6 +57,12 @@ export class RiggedActor extends Phaser.GameObjects.Container {
     this.moving = moving;
   }
 
+  /** Steuert die Sprung-Pose (Beine angezogen, Squash & Stretch nach Fallgeschwindigkeit). */
+  setAirborne(airborne: boolean, velocityY: number): void {
+    this.airborne = airborne;
+    this.airborneVelocityY = velocityY;
+  }
+
   get isPlayingAbility(): boolean {
     return this.scene.time.now < this.abilityUntil;
   }
@@ -77,6 +85,11 @@ export class RiggedActor extends Phaser.GameObjects.Container {
     if (this.isPlayingAbility) {
       const t = (timeMs - this.abilityStart) / this.abilityDuration;
       this.renderAbilityPose(t, { legFront, legBack, tail, mane, cape, body, head });
+      return;
+    }
+
+    if (this.airborne) {
+      this.renderAirbornePose({ legFront, legBack, tail, mane, cape, body, head });
       return;
     }
 
@@ -151,5 +164,26 @@ export class RiggedActor extends Phaser.GameObjects.Container {
     parts.tail.rotation = Math.sin(t * Math.PI * 6) * 0.5;
     parts.mane.rotation = Math.sin(t * Math.PI * 6 + 1) * 0.3;
     parts.cape.rotation = 0.12 + Math.sin(t * Math.PI * 6 + 2) * 0.35;
+  }
+
+  private renderAirbornePose(parts: {
+    legFront: Phaser.GameObjects.Image;
+    legBack: Phaser.GameObjects.Image;
+    tail: Phaser.GameObjects.Image;
+    mane: Phaser.GameObjects.Image;
+    cape: Phaser.GameObjects.Image;
+    body: Phaser.GameObjects.Image;
+    head: Phaser.GameObjects.Image;
+  }): void {
+    // Negative Geschwindigkeit = steigt (Streckung), positiv = fällt (Stauchung).
+    const stretch = Phaser.Math.Clamp(-this.airborneVelocityY / 900, -0.18, 0.22);
+    parts.body.setScale(1 - stretch * 0.5, 1 + stretch);
+    parts.head.setScale(1, 1);
+    parts.legFront.rotation = -0.55;
+    parts.legBack.rotation = -0.35;
+    parts.tail.rotation = 0.3;
+    parts.mane.rotation = -0.15;
+    parts.cape.rotation = 0.32;
+    this.setScale(this.facing * 1, 1);
   }
 }

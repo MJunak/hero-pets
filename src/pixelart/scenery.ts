@@ -187,6 +187,15 @@ export function sparkleIconCanvas(size = 48): HTMLCanvasElement {
   return gridToCanvas(grid, {}, size / 20);
 }
 
+/** Nach-oben-Pfeil für den Touch-Sprung-Button (statt Emoji, das nicht überall verfügbar ist). */
+export function jumpIconCanvas(size = 48): HTMLCanvasElement {
+  const grid = makeGrid(20, 20);
+  const W = '#ffffff';
+  fillTriangle(grid, 10, 1, 2, 11, 18, 11, W);
+  fillRect(grid, 7, 10, 6, 9, W);
+  return gridToCanvas(grid, {}, size / 20);
+}
+
 export function particleDotCanvas(): HTMLCanvasElement {
   const grid = makeGrid(4, 4);
   fillRect(grid, 0, 0, 4, 4, '#ffffff');
@@ -320,6 +329,47 @@ export function starCollectibleCanvas(): HTMLCanvasElement {
   fillEllipse(grid, 8, 8, 1.6, 1.6, light);
   addOutline(grid, O);
   return gridToCanvas(grid, {}, 8);
+}
+
+/** Niedriges Sprung-Hindernis: kleiner Steinhaufen (~55px hoch in der Welt). */
+export function hurdleRockCanvas(): HTMLCanvasElement {
+  const w = 16;
+  const h = 10;
+  const grid = makeGrid(w, h);
+  fillEllipse(grid, 8, 8, 7, 4, '#8a8a95');
+  fillEllipse(grid, 5, 5, 4, 3.2, '#9a9aa5');
+  fillEllipse(grid, 11, 4.5, 3.6, 3, '#aab0bb');
+  addOutline(grid, O);
+  return gridToCanvas(grid, {}, 6);
+}
+
+/** Mittleres Sprung-Hindernis: Baumstumpf (~70px hoch in der Welt). */
+export function hurdleStumpCanvas(): HTMLCanvasElement {
+  const w = 12;
+  const h = 12;
+  const grid = makeGrid(w, h);
+  fillCapsule(grid, 6, 11, 6, 4, 5, '#7a5230');
+  fillEllipse(grid, 6, 2.2, 5, 2.6, '#c99a63');
+  fillEllipse(grid, 6, 2.2, 3, 1.5, '#e8c48f');
+  addOutline(grid, O);
+  return gridToCanvas(grid, {}, 6);
+}
+
+/** Hohes Sprung-Hindernis: zwei gestapelte Holzkisten (~88px hoch in der Welt). */
+export function hurdleCrateCanvas(): HTMLCanvasElement {
+  const w = 15;
+  const h = 15;
+  const grid = makeGrid(w, h);
+  fillRect(grid, 1, 8, 13, 6, '#a9793f');
+  fillRect(grid, 1, 8, 13, 1, '#c79358');
+  fillRect(grid, 2, 8, 1, 6, '#7a521f');
+  fillRect(grid, 12, 8, 1, 6, '#7a521f');
+  fillRect(grid, 2, 1, 11, 7, '#c79358');
+  fillRect(grid, 2, 1, 11, 1, '#e8b878');
+  fillRect(grid, 3, 1, 1, 7, '#8a5a2b');
+  fillRect(grid, 11, 1, 1, 7, '#8a5a2b');
+  addOutline(grid, O);
+  return gridToCanvas(grid, {}, 6);
 }
 
 export function signCanvas(): HTMLCanvasElement {
